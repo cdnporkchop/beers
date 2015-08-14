@@ -1,4 +1,6 @@
-#import requests
+import sys,os
+sys.path.append(os.path.abspath('..'))
+from beers.connectivity.MongoDBConnection import MongoDBConnection
 import time
 import json
 import urllib2
@@ -9,17 +11,20 @@ class BeerFetcher:
         self.base_url = 'http://www.thebeerstore.ca'
         self.search_suffix = '/beers/search'
 
+
     def fetch_all(self):
         tStartParseClock = time.clock()
         page = urllib2.urlopen(self.base_url + self.search_suffix)
         pq = PyQuery(page.read())
 
+        mongodb = MongoDBConnection()
         number_of_beers = len(pq(".brand-link"))
         beer = 0
         print '# Beers', number_of_beers
         while beer < number_of_beers:
             beer_details_url = self.base_url + pq(".brand-link")[beer].attrib['href']
-            self.fetch_details(beer_details_url)        # self.fetch_details('http://www.thebeerstore.ca/beers/keiths')
+            data = self.fetch_details(beer_details_url)        # self.fetch_details('http://www.thebeerstore.ca/beers/keiths')
+            mongodb.insert_beer(data)
             beer += 1
         print 'fetch_all took [%.2f] seconds' %((time.clock()-tStartParseClock))
 
@@ -50,6 +55,7 @@ class BeerFetcher:
                 data_container.append(({"type" : container_type, "size" : size, "price" : price, "location" : locations}))
                 container_option += 1
             current_option += 1
+
         data_beer = {}
         data_beer['href'] = details_url
         data_beer['name'] = pq(".brand-info-container .brand-info-inner .only-desktop .page-title")[0].text
@@ -65,6 +71,10 @@ class BeerFetcher:
         json_beer = json.dumps(data_beer)
         print 'fetch_details took [%.2f] seconds' %((time.clock()-tStartParseClock))
         print json_beer
+        return data_beer
+
+
+
 
 beer = BeerFetcher()
 beer.fetch_all()
